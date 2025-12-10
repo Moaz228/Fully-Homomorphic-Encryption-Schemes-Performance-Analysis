@@ -1,0 +1,141 @@
+#include <cstdint>
+#include <cstdlib>
+#include <iostream>
+#include <random>
+#include <vector>
+#include <openfhe.h>
+
+#define start_time(name) \
+  std::chrono::high_resolution_clock::time_point name##_start \
+    = std::chrono::high_resolution_clock::now()
+
+#define end_time(name) \
+  std::chrono::high_resolution_clock::time_point name##_end \
+    = std::chrono::high_resolution_clock::now()
+
+#define time_duration(name) std::chrono::duration_cast<std::chrono::nanoseconds>(name##_end - name##_start)
+
+
+static const int inp_len = 8190;
+static const int num_inp = 2;
+
+std::vector<std::int64_t> gen_rand_vec(std::uint64_t len) {
+  std::vector<std::int64_t> res;
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_int_distribution<int> dist(1, 9);
+  for (std::uint64_t i{0}; i < len; ++i) res.push_back(dist(gen));
+  return res;
+}
+
+int main() {
+  // Step 1: Setup CryptoContext
+  lbcrypto::CCParams<lbcrypto::CryptoContextBFVRNS> params;
+  params.SetPlaintextModulus(65537);
+  params.SetMultiplicativeDepth(2);
+  
+  lbcrypto::CryptoContext<lbcrypto::DCRTPoly> crypto_context = GenCryptoContext(params);
+  
+  crypto_context->Enable(lbcrypto::PKE);
+  crypto_context->Enable(lbcrypto::KEYSWITCH);
+  crypto_context->Enable(lbcrypto::LEVELEDSHE);
+
+  std::vector<std::int64_t> vec1 = gen_rand_vec(inp_len);
+  std::vector<std::int64_t> vec2 = gen_rand_vec(inp_len);
+  
+  for(std::uint64_t i{0}; i < 2; ++i) {
+    // Step 2: Key Generation
+
+    start_time(key_pair_gen);
+      lbcrypto::KeyPair key_pair = crypto_context->KeyGen();
+    end_time(key_pair_gen);
+
+    start_time(relin_gen);
+      crypto_context->EvalMultKeyGen(key_pair.secretKey);
+    end_time(relin_gen);
+    
+    start_time(rot_key_gen);
+      crypto_context->EvalRotateKeyGen(key_pair.secretKey, {1, 2, -1, -2});
+    end_time(rot_key_gen);
+    
+    // Step 3: Encoding and encryption
+
+    lbcrypto::Plaintext plaintext1 = crypto_context->MakePackedPlaintext(vec1);
+    lbcrypto::Plaintext plaintext2 = crypto_context->MakePackedPlaintext(vec2);
+
+    // Encrypt plaintexts
+    start_time(enc1);
+      lbcrypto::Ciphertext ciphertext1 = crypto_context->Encrypt(key_pair.publicKey, plaintext1);
+    end_time(enc1);
+
+    start_time(enc2);
+      lbcrypto::Ciphertext ciphertext2 = crypto_context->Encrypt(key_pair.publicKey, plaintext2);
+    end_time(enc2);
+
+    // Step 4: Homomorphic operations
+    
+    start_time(homomorphic_add);
+      lbcrypto::Ciphertext ciphertext_add = crypto_context->EvalAdd(ciphertext1, ciphertext2);
+    end_time(homomorphic_add);
+
+    start_time(homomorphic_sub);
+      lbcrypto::Ciphertext ciphertext_sub = crypto_context->EvalSub(ciphertext1, ciphertext2);
+    end_time(homomorphic_sub);
+
+    start_time(homomorphic_mul);
+      lbcrypto::Ciphertext ciphertext_mul = crypto_context->EvalMult(ciphertext1, ciphertext2);
+    end_time(homomorphic_mul);
+
+    start_time(homomorphic_rot);
+      lbcrypto::Ciphertext ciphertext_rot = crypto_context->EvalRotate(ciphertext1, 1);
+    end_time(homomorphic_rot);
+    
+    lbcrypto::Plaintext plaintext_add_result;
+    start_time(dec_add);
+      crypto_context->Decrypt(key_pair.secretKey, ciphertext_add, &plaintext_add_result);
+    end_time(dec_add);
+    plaintext_add_result->SetLength(vec1.size());
+    
+    lbcrypto::Plaintext plaintext_sub_result;
+    start_time(dec_sub);
+      crypto_context->Decrypt(key_pair.secretKey, ciphertext_sub, &plaintext_sub_result);
+    end_time(dec_sub);
+    plaintext_sub_result->SetLength(vec1.size());
+    
+    lbcrypto::Plaintext plaintext_mult_result;
+    start_time(dec_mul);
+      crypto_context->Decrypt(key_pair.secretKey, ciphertext_mul, &plaintext_mult_result);
+    end_time(dec_mul);
+    plaintext_mult_result->SetLength(vec1.size());
+    
+    lbcrypto::Plaintext plaintext_rot_result;
+    start_time(dec_rot);
+      crypto_context->Decrypt(key_pair.secretKey, ciphertext_rot, &plaintext_rot_result);
+    end_time(dec_rot);
+    plaintext_rot_result->SetLength(vec1.size());
+
+    
+    std::cout << "Input x1: " << plaintext1 <<'\n'
+              << "Input x2: " << plaintext2 << "\n\n"
+              <<"Results of homomorphic computations:\n"
+              <<"x1 + x2 = " <<plaintext_add_result <<'\n'
+              <<"x1 - x2 = " <<plaintext_sub_result <<'\n'
+              <<"x1 * x2 = " <<plaintext_mult_result <<'\n'
+              <<"Rotate x1 by 1 = " <<plaintext_rot_result <<'\n'
+              <<"key pair gen time: " <<time_duration(key_pair_gen) <<'\n'
+              <<"relinearization key gen time: " <<time_duration(relin_gen) <<'\n'
+              <<"rotation key gen time: " <<time_duration(rot_key_gen) <<'\n'
+              <<"First encryption: " <<time_duration(enc1) <<'\n'
+              <<"second encryption: " <<time_duration(enc2) <<'\n'
+              <<"homomorphic add: " <<time_duration(homomorphic_add) <<'\n'
+              <<"homomorphic sub: " <<time_duration(homomorphic_sub) <<'\n'
+              <<"homomorphic mul: " <<time_duration(homomorphic_mul) <<'\n'
+              <<"homomorphic rot: " <<time_duration(homomorphic_rot) <<'\n'
+              <<"dec add: " <<time_duration(dec_add) <<'\n'
+              <<"dec sub: " <<time_duration(dec_sub) <<'\n'
+              <<"dec mul: " <<time_duration(dec_mul) <<'\n'
+              <<"dec rot: " <<time_duration(dec_rot) <<'\n';
+  }
+  
+  return EXIT_SUCCESS;
+}
