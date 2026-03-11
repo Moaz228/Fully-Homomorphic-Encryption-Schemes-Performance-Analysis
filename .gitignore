@@ -1,0 +1,6 @@
+build/
+bin/
+*.bin
+sensor_readings.txt
+__pycache__/
+.vscode/

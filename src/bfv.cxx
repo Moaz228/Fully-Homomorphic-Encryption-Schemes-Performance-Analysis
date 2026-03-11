@@ -1,163 +1,119 @@
-#include <algorithm>
-#include <cstdint>
-#include <cstdlib>
-#include <format>
 #include <fstream>
+#include <cstdint>
 #include <iostream>
+#include <vector>
+#include <chrono>
 #include <openfhe.h>
-#include <EncDataContainer.hxx>
-#include <FileWriter.hxx>
+
+// OpenFHE Serialization Headers
+#include "ciphertext-ser.h"
+#include "cryptocontext-ser.h"
+#include "key/key-ser.h"
+#include "scheme/bfvrns/bfvrns-ser.h"
+
+#include "EncDataContainer.hxx"
 
 #define start_time(name) \
-  std::chrono::high_resolution_clock::time_point name##_start \
-    = std::chrono::high_resolution_clock::now()
+  std::chrono::high_resolution_clock::time_point name##_start = std::chrono::high_resolution_clock::now()
 
 #define end_time(name) \
-  std::chrono::high_resolution_clock::time_point name##_end \
-    = std::chrono::high_resolution_clock::now()
+  std::chrono::high_resolution_clock::time_point name##_end = std::chrono::high_resolution_clock::now()
 
 #define time_duration(name) std::chrono::duration_cast<std::chrono::nanoseconds>(name##_end - name##_start)
+#define time_duration_ms(name) (time_duration(name).count() / 1000000.0)
 
-static const std::uint64_t inp_len = 100;
-static const std::uint64_t num_inp = 10;
-static const std::uint64_t iterations = 100;
-static const std::pair<std::uint64_t, std::uint64_t> rand_range = {1, 9};
-
-std::vector<std::int64_t> gen_rand_vec(std::uint64_t len, std::pair<std::uint64_t, std::uint64_t> range) {
-  std::vector<std::int64_t> res;
-  std::random_device rd;
-  std::mt19937 gen(rd());
-  std::uniform_int_distribution<int> dist(range.first, range.second);
-  for (std::uint64_t i{0}; i < len; ++i) res.push_back(dist(gen));
-  return res;
-}
+using namespace lbcrypto;
 
 int main() {
-  FileWriter::prepare_file_header({num_inp, inp_len});
+    std::cout << "========================================================\n";
+    std::cout << "--- BFV Gateway Module: Serialization Edition ---\n";
+    std::cout << "========================================================\n\n";
 
-  lbcrypto::CCParams<lbcrypto::CryptoContextBFVRNS> params;
-  params.SetPlaintextModulus(65537);
-  params.SetMultiplicativeDepth(2);
-  
-  lbcrypto::CryptoContext<lbcrypto::DCRTPoly> crypto_context = GenCryptoContext(params);
-  crypto_context->Enable(lbcrypto::PKE);
-  crypto_context->Enable(lbcrypto::KEYSWITCH);
-  crypto_context->Enable(lbcrypto::LEVELEDSHE);
-  crypto_context->Enable(bigintdyn::ADVANCEDSHE);
-
-  for(std::uint64_t i{0}; i < iterations; ++i)  {
-    std::vector<EncDataContainer> inputs;
-    for(std::uint64_t i{0}; i < num_inp; ++i) {
-      EncDataContainer enc_data_container;
-      enc_data_container.m_InputVec = gen_rand_vec(inp_len, rand_range);
-      inputs.push_back(std::move(enc_data_container));
-    }
-    FileWriter::output_file <<std::format("{},", i);
-    for(std::uint64_t j{0}; j < num_inp; ++j)
-      for(std::uint64_t k{0}; k < inp_len; ++k)
-        FileWriter::output_file <<std::format("{},", inputs.at(j).m_InputVec.at(k));
-
-    for(std::uint64_t i{0}; i < num_inp; ++i){
-      inputs.at(i).m_Plaintext = crypto_context->MakePackedPlaintext(inputs.at(i).m_InputVec);
-    }
-
-      //OUTOUT:
-    for(std::uint64_t j{0}; j < num_inp; ++j) std::cout <<"Input " <<j <<": " <<inputs.at(j).m_Plaintext <<'\n';
-
-    std::cout <<"Results of homomorphic computations:\n";
-
-    start_time(key_pair_gen);
-      lbcrypto::KeyPair key_pair = crypto_context->KeyGen();
-    end_time(key_pair_gen);
-
-    //OUTOUT
-    std::cout <<"Key Pair Genrration Time(ns): " <<time_duration(key_pair_gen) <<'\n';
-
-    start_time(relin_gen);
-      crypto_context->EvalMultKeyGen(key_pair.secretKey);
-    end_time(relin_gen);
-
-    //OUTOUT
-    std::cout <<"Relinearization Key Genrration Time(ns): " <<time_duration(relin_gen) <<'\n';
+    // ---------------------------------------------------------
+    // 1. SETUP THE CRYPTOGRAPHIC ENGINE
+    // ---------------------------------------------------------
+    CCParams<CryptoContextBFVRNS> params;
+    params.SetPlaintextModulus(65537);
+    params.SetMultiplicativeDepth(2);
     
-    start_time(rot_key_gen);
-      crypto_context->EvalRotateKeyGen(key_pair.secretKey, {1, 2, -1, -2});
-    end_time(rot_key_gen);
+    CryptoContext<DCRTPoly> cc = GenCryptoContext(params);
+    cc->Enable(PKE);
+    cc->Enable(KEYSWITCH);
+    cc->Enable(LEVELEDSHE);
 
-    //OUTOUT
-    std::cout <<"Rotation Key Genrration Time(ns): " <<time_duration(rot_key_gen) <<'\n';
+    KeyPair<DCRTPoly> keyPair = cc->KeyGen();
+    cc->EvalMultKeyGen(keyPair.secretKey);
 
-    for(std::uint64_t j{0}; j < num_inp; ++j) {
-      start_time(enc);
-        inputs.at(j).m_Ciphertext = crypto_context->Encrypt(key_pair.publicKey, inputs.at(j).m_Plaintext);
-      end_time(enc);
+    // =========================================================
+    // YOUR RESPONSIBILITY: FHE ENCRYPTION & EXPORT
+    // =========================================================
+    std::cout << "[Gateway] 1. Simulating AES Decryption... (Got 100 readings)\n";
+    // --- DYNAMIC DATA LOADING ---
+    std::vector<int64_t> gateway_input;
+    std::ifstream inputFile("sensor_readings.txt");
+    int64_t temp_val;
 
-      //OUTOUT
-      std::cout <<"Input " <<j <<" Encryption Time(ns): " <<time_duration(enc) <<'\n';
-      FileWriter::output_file <<std::format("{},", time_duration(enc).count());
+    while (inputFile >> temp_val) {
+        gateway_input.push_back(temp_val);
     }
+    inputFile.close();
 
-    std::vector<lbcrypto::Ciphertext<lbcrypto::DCRTPoly>> inputs_ciphertext(num_inp);
-    for(std::uint64_t j{0}; j < num_inp; ++j) inputs_ciphertext.at(j) = (inputs.at(j).m_Ciphertext);
-
-    start_time(homomorphic_add);
-      lbcrypto::Ciphertext ciphertext_add = crypto_context->EvalAddMany(inputs_ciphertext);
-    end_time(homomorphic_add);
-
-    //OUTOUT
-    std::cout <<"Homomorphic Addation Time(ns): " <<time_duration(homomorphic_add) <<'\n';
-
-    // start_time(homomorphic_sub);
-    //   lbcrypto::Ciphertext ciphertext_sub = crypto_context->EvalSub(inputs_ciphertext.at(0), inputs_ciphertext.at(1));
-    // end_time(homomorphic_sub);
-
-    start_time(homomorphic_mul);
-      lbcrypto::Ciphertext ciphertext_mul = crypto_context->EvalMultMany(inputs_ciphertext);
-    end_time(homomorphic_mul);
-    //OUTOUT
-    std::cout <<"Homomorphic Multiplication Time(ns): " <<time_duration(homomorphic_mul) <<'\n';
-
-    // start_time(homomorphic_rot);
-    //   lbcrypto::Ciphertext ciphertext_rot = crypto_context->EvalRotate(inputs_ciphertext.at(0), 1);
-    // end_time(homomorphic_rot);
-
-
-    lbcrypto::Plaintext plaintext_add_result;
-    start_time(dec_add);
-      crypto_context->Decrypt(key_pair.secretKey, ciphertext_add, &plaintext_add_result);
-    end_time(dec_add);
-    plaintext_add_result->SetLength(inp_len);
-    //OUTOUT
-    std::cout <<"Decryption of the Added values Time(ns): " <<time_duration(dec_add) <<'\n';
-
-    // lbcrypto::Plaintext plaintext_sub_result;
-    // start_time(dec_sub);
-    //   crypto_context->Decrypt(key_pair.secretKey, ciphertext_sub, &plaintext_sub_result);
-    // end_time(dec_sub);
-    // plaintext_sub_result->SetLength(inp_len);
+    if (gateway_input.empty()) {
+        gateway_input.assign(100, 2543); // Fallback
+    } 
     
-    lbcrypto::Plaintext plaintext_mult_result;
-    start_time(dec_mul);
-      crypto_context->Decrypt(key_pair.secretKey, ciphertext_mul, &plaintext_mult_result);
-    end_time(dec_mul);
-    plaintext_mult_result->SetLength(inp_len);
-    //OUTOUT
-    std::cout <<"Decryption of the Multiplied values Time(ns): " <<time_duration(dec_mul) <<'\n';
+    std::cout << "[Gateway] 2. FHE Encrypting...\n";
+    Plaintext gateway_plaintext = cc->MakePackedPlaintext(gateway_input);
     
-    // lbcrypto::Plaintext plaintext_rot_result;
-    // start_time(dec_rot);
-    //   crypto_context->Decrypt(key_pair.secretKey, ciphertext_rot, &plaintext_rot_result);
-    // end_time(dec_rot);
-    // plaintext_rot_result->SetLength(inp_len);
-    std::cout <<'\n';
+    start_time(enc);
+    Ciphertext<DCRTPoly> gateway_ciphertext = cc->Encrypt(keyPair.publicKey, gateway_plaintext);
+    end_time(enc);
+    std::cout << "  -> Encryption Time: " << time_duration_ms(enc) << " ms\n";
 
-    FileWriter::output_file <<std::format("{},", time_duration(key_pair_gen).count());
-    FileWriter::output_file <<std::format("{},", time_duration(relin_gen).count());
-    FileWriter::output_file <<std::format("{},", time_duration(rot_key_gen).count());
-    FileWriter::output_file <<std::format("{},", time_duration(homomorphic_add).count());
-    FileWriter::output_file <<std::format("{},", time_duration(homomorphic_mul).count());
-    FileWriter::output_file <<std::format("{},", time_duration(dec_add).count());
-    FileWriter::output_file <<std::format("{}\n", time_duration(dec_mul).count());
-  }
-  return EXIT_SUCCESS;
+    std::cout << "[Gateway] 3. Serializing Ciphertext to 'ciphertext_out.bin'...\n";
+    start_time(ser);
+    Serial::SerializeToFile("ciphertext_out.bin", gateway_ciphertext, SerType::BINARY);
+    end_time(ser);
+    std::cout << "  -> Serialization Time: " << time_duration_ms(ser) << " ms\n\n";
+
+    // =========================================================
+    // CLOUD FRIEND'S RESPONSIBILITY (Mocked just to test)
+    // =========================================================
+    std::cout << "[Cloud] Receiving 'ciphertext_out.bin', Adding 10000, Saving 'ciphertext_in.bin'...\n\n";
+    Ciphertext<DCRTPoly> cloud_received_cipher;
+    Serial::DeserializeFromFile("ciphertext_out.bin", cloud_received_cipher, SerType::BINARY);
+    
+    std::vector<int64_t> addition_array(100, 10000);
+    Plaintext addition_pt = cc->MakePackedPlaintext(addition_array);
+    Ciphertext<DCRTPoly> cloud_result = cc->EvalAdd(cloud_received_cipher, addition_pt);
+    
+    Serial::SerializeToFile("ciphertext_in.bin", cloud_result, SerType::BINARY);
+
+    // =========================================================
+    // YOUR RESPONSIBILITY: IMPORT & FHE DECRYPTION
+    // =========================================================
+    std::cout << "[Gateway] 4. Reading Cloud response from 'ciphertext_in.bin'...\n";
+    Ciphertext<DCRTPoly> gateway_received_cipher;
+    
+    start_time(deser);
+    Serial::DeserializeFromFile("ciphertext_in.bin", gateway_received_cipher, SerType::BINARY);
+    end_time(deser);
+    std::cout << "  -> Deserialization Time: " << time_duration_ms(deser) << " ms\n";
+
+    std::cout << "[Gateway] 5. FHE Decrypting...\n";
+    Plaintext final_plaintext;
+    
+    start_time(dec);
+    cc->Decrypt(keyPair.secretKey, gateway_received_cipher, &final_plaintext);
+    end_time(dec);
+    std::cout << "  -> Decryption Time: " << time_duration_ms(dec) << " ms\n";
+
+    final_plaintext->SetLength(100);
+    double final_value = final_plaintext->GetPackedValue()[0] / 100.0;
+    
+    std::cout << "\n========================================================\n";
+    std::cout << "[+] SUCCESS! Final Decrypted Reading: " << final_value << "\n";
+    std::cout << "========================================================\n";
+
+    return EXIT_SUCCESS;
 }
