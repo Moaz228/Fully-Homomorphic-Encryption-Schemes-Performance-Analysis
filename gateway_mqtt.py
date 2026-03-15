@@ -1,6 +1,7 @@
 import base64
 import os
 import subprocess
+import time
 
 import paho.mqtt.client as mqtt
 import requests
@@ -8,8 +9,8 @@ from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
 
 # ================= CONFIGURATION =================
-SELECTED_SCHEME = "CKKS"
-CLOUD_URL = "http://localhost:5000/compute/average"  # Set your operation here
+SELECTED_SCHEME = "BGV"
+CLOUD_URL = "http://localhost:5000/compute/multiply"  # Set your operation here
 
 MQTT_BROKER = "broker.hivemq.com"
 MQTT_PORT = 1883
@@ -27,11 +28,14 @@ ENGINES = {
 
 def decrypt_aes(payload_b64):
     try:
+        start_time = time.time()
         raw_data = base64.b64decode(payload_b64)
         iv = raw_data[:16]
         ciphertext = raw_data[16:]
         cipher = AES.new(AES_KEY, AES.MODE_CBC, iv)
         decrypted = unpad(cipher.decrypt(ciphertext), AES.block_size)
+        end_time = time.time()
+        print(f"AES Decryption Time: {(end_time - start_time)*1000:.4f} ms")
         return [int(x) for x in decrypted.decode("utf-8").split(",")]
     except Exception as e:
         print(f"[!] AES Decryption failed: {e}")
@@ -66,9 +70,10 @@ def on_message(client, userdata, msg):
             "mult_key": open("mult_key.bin", "rb"),
             "rot_key": open("rot_key.bin", "rb"),
         }
-
+        start_time = time.time()
         response = requests.post(CLOUD_URL, files=files)
-
+        end_time = time.time()
+        print(f"Cloud response time: {(end_time - start_time)*1000:.4f} ms")
         if response.status_code == 200:
             # 5. Save the Cloud's result
             with open("ciphertext_in.bin", "wb") as f:
@@ -78,9 +83,15 @@ def on_message(client, userdata, msg):
             # 6. Trigger C++ DECRYPTION
             # Note: We pass '--decrypt' so your C++ code knows to switch modes
             print("[*] Running FHE Decryption...")
+            start_time = time.time()
             result = subprocess.run(
                 [engine_path, "--decrypt"], capture_output=True, text=True
             )
+            end_time = time.time()
+            print(
+                f"{SELECTED_SCHEME} Decryption Time: {(end_time - start_time)*1000:.4f} ms"
+            )
+
             print("\n--- FINAL FHE RESULTS ---")
             print(result.stdout)
             print("-------------------------")
