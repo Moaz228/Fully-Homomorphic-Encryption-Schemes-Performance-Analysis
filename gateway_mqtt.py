@@ -9,7 +9,7 @@ from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
 
 # ================= CONFIGURATION =================
-SELECTED_SCHEME = "BGV"
+SELECTED_SCHEME = "CKKS"
 CLOUD_URL = "http://localhost:5000/compute/multiply"  # Set your operation here
 
 MQTT_BROKER = "broker.hivemq.com"
@@ -36,7 +36,7 @@ def decrypt_aes(payload_b64):
         decrypted = unpad(cipher.decrypt(ciphertext), AES.block_size)
         end_time = time.time()
         print(f"AES Decryption Time: {(end_time - start_time)*1000:.4f} ms")
-        return [int(x) for x in decrypted.decode("utf-8").split(",")]
+        return [float(x) for x in decrypted.decode("utf-8").split(",")]
     except Exception as e:
         print(f"[!] AES Decryption failed: {e}")
         return None
@@ -70,6 +70,7 @@ def on_message(client, userdata, msg):
             "mult_key": open("mult_key.bin", "rb"),
             "rot_key": open("rot_key.bin", "rb"),
         }
+        print((os.path.getsize("ciphertext_out.bin")) / 1024)
         start_time = time.time()
         response = requests.post(CLOUD_URL, files=files)
         end_time = time.time()

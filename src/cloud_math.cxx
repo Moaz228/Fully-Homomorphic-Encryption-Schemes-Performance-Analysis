@@ -13,6 +13,16 @@
 
 using namespace lbcrypto;
 
+#define start_time(name)                                                       \
+  auto name##_start = std::chrono::high_resolution_clock::now()
+#define end_time(name)                                                         \
+  auto name##_end = std::chrono::high_resolution_clock::now()
+#define time_duration_ms(name)                                                 \
+  (std::chrono::duration_cast<std::chrono::nanoseconds>(name##_end -           \
+                                                        name##_start)          \
+       .count() /                                                              \
+   1000000.0)
+
 int main(int argc, char *argv[]) {
   if (argc < 2) {
     std::cerr << "Usage: ./cloud_math.out <operation>" << std::endl;
@@ -41,6 +51,7 @@ int main(int argc, char *argv[]) {
 
   Ciphertext<DCRTPoly> result;
   // 3. Logic Branching based on Operation
+  start_time(enc);
   if (op == "add") {
     // For addition, CKKS handles the double 100.0 n
     if (cc->getSchemeId() == SCHEME::CKKSRNS_SCHEME) {
@@ -59,8 +70,17 @@ int main(int argc, char *argv[]) {
       result = cc->EvalMult(ct, ptFactor);
     }
   } else if (op == "average") {
-    result = cc->EvalSum(ct, 100);
+
+    if (cc->getSchemeId() == SCHEME::CKKSRNS_SCHEME) {
+      result = cc->EvalSum(ct, 32);
+      result = cc->EvalMult(result, 1.0 / 20.0);
+    } else {
+      result = cc->EvalSum(ct, 32);
+    }
   }
+  end_time(enc);
+  std::cout << "Operation Time: " << time_duration_ms(enc) << " ms"
+            << std::endl;
   // 4. Save result
   Serial::SerializeToFile("cloud_result.bin", result, SerType::BINARY);
   return 0;

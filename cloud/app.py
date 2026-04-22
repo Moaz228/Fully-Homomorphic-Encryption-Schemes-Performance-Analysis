@@ -1,7 +1,7 @@
 import os
 import subprocess
 
-from flask import Flask, jsonify, request, send_file
+from flask import Flask, request, send_file
 
 app = Flask(__name__)
 

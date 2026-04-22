@@ -1,3 +1,4 @@
+#include "constants-defs.h"
 #include "openfhe.h"
 #include <chrono>
 #include <fstream>
@@ -30,7 +31,8 @@ int main(int argc, char *argv[]) {
     CCParams<CryptoContextCKKSRNS> params;
     params.SetMultiplicativeDepth(2);
     params.SetScalingModSize(50);
-    params.SetBatchSize(128); // Power of 2 for CKKS
+    params.SetBatchSize(64); // Power of 2 for CKKS
+    params.SetScalingTechnique(lbcrypto::FLEXIBLEAUTO);
 
     CryptoContext<DCRTPoly> cc = GenCryptoContext(params);
     cc->Enable(PKE);
@@ -47,9 +49,11 @@ int main(int argc, char *argv[]) {
     std::ifstream inputFile("sensor_readings.txt");
     double temp_val;
     while (inputFile >> temp_val)
-      gateway_input.push_back(temp_val / 100.0);
+      gateway_input.push_back(temp_val);
     if (gateway_input.empty())
       gateway_input.assign(100, 25.43);
+
+    gateway_input.resize(64, 0.0);
 
     Plaintext pt = cc->MakeCKKSPackedPlaintext(gateway_input);
     start_time(enc);
