@@ -10,8 +10,11 @@ from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
 
 # ================= CONFIGURATION =================
-SELECTED_SCHEME = "CKKS"
-CLOUD_URL = "http://localhost:5000/compute/add"  # Set your operation here
+SELECTED_SCHEME = "BGV"
+OPERATION = "average"
+CLOUD_URL = (
+    f"http://localhost:5000/compute/{OPERATION}"  # Set your operation here
+)
 
 MQTT_BROKER = "broker.hivemq.com"
 MQTT_PORT = 1883
@@ -71,7 +74,9 @@ def on_message(client, userdata, msg):
             "mult_key": open("mult_key.bin", "rb"),
             "rot_key": open("rot_key.bin", "rb"),
         }
-        print((os.path.getsize("ciphertext_out.bin")) / 1024)
+        print(
+            f"Encrypted Data Size: {(os.path.getsize("ciphertext_out.bin")) / 1024}"
+        )
         start_time = time.time()
         response = requests.post(CLOUD_URL, files=files)
         end_time = time.time()
@@ -87,12 +92,14 @@ def on_message(client, userdata, msg):
             print("[*] Running FHE Decryption...")
             start_time = time.time()
             result = subprocess.run(
-                [engine_path, "--decrypt"], capture_output=True, text=True
+                [engine_path, "--decrypt", OPERATION],
+                capture_output=True,
+                text=True,
             )
             end_time = time.time()
-            print(
-                f"{SELECTED_SCHEME} Decryption Time: {(end_time - start_time)*1000:.4f} ms"
-            )
+            # print(
+            #     f"{SELECTED_SCHEME} Decryption Time: {(end_time - start_time)*1000:.4f} ms"
+            # )
 
             print("\n--- FINAL FHE RESULTS ---")
             print(result.stdout)

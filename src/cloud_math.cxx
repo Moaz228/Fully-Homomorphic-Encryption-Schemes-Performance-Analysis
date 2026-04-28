@@ -143,13 +143,6 @@ int main(int argc, char *argv[]) {
   } else if (op == "average") {
     // Example: Add them and divide by 2
     result = cc->EvalAdd(ct1, ct2);
-    if (cc->getSchemeId() == SCHEME::CKKSRNS_SCHEME) {
-      result = cc->EvalMult(result, 0.5);
-    } else {
-      // Integer schemes don't support 0.5 easily; might need a different
-      // approach
-      std::cerr << "Average between vectors usually requires CKKS" << std::endl;
-    }
   }
 
   end_time(enc);

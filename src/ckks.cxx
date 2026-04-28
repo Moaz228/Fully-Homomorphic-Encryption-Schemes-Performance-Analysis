@@ -126,11 +126,14 @@ int main(int argc, char *argv[]) {
     std::ofstream rotKeyFile("rot_key.bin", std::ios::binary);
     cc->SerializeEvalAutomorphismKey(rotKeyFile, SerType::BINARY);
 */
-    std::cout << "[CKKS] Encrypted & Keys Serialized. Time: "
-              << time_duration_ms(enc) << " ms" << std::endl;
+    std::cout << "[CKKS] Encryption Time: " << time_duration_ms(enc) << " ms"
+              << std::endl;
 
   } else {
     // --- PHASE 2: DECRYPTION ---
+    //
+    //
+    std::string op = (argc > 2) ? argv[2] : "add";
     CryptoContext<DCRTPoly> cc;
     PrivateKey<DCRTPoly> sk;
     Ciphertext<DCRTPoly> ct;
@@ -143,12 +146,39 @@ int main(int argc, char *argv[]) {
       return 1;
 
     Plaintext result;
+    start_time(dec);
     cc->Decrypt(sk, ct, &result);
-    result->SetLength(100);
+    end_time(dec);
+    size_t vectorSize = 500;
+    result->SetLength(vectorSize);
+
+    std::cout << "[CKKS] Decryption Time: " << time_duration_ms(dec) << " ms"
+              << std::endl;
 
     // CKKS uses GetRealPackedValue
     auto values = result->GetRealPackedValue();
-    std::cout << "[CKKS] Decrypted Result: " << values[0] << std::endl;
+    // std::cout << "[CKKS] Decrypted Result: " << values[0] << std::endl;
+    if (op == "average") {
+      double totalSum = 0.0;
+
+      for (size_t i = 0; i < vectorSize; i++) {
+        // First, get the average of the two vectors for this sensor
+        double sensorAvg = values[i] / 2.0;
+        totalSum += sensorAvg;
+      }
+
+      double finalGlobalAvg = totalSum / vectorSize;
+
+      std::cout << "\n--- GLOBAL SPATIAL AVERAGE ---" << std::endl;
+      std::cout << "Average value across all " << vectorSize
+                << " sensors: " << finalGlobalAvg << std::endl;
+      std::cout << "------------------------------" << std::endl;
+    } else {
+      // For 'add' and 'multi', we just print the raw decrypted values
+      for (size_t i = 0; i < 10; i++) {
+        std::cout << "Index " << i << ": " << values[i] << std::endl;
+      }
+    }
   }
   return 0;
 }
