@@ -23,6 +23,7 @@ using namespace lbcrypto;
        .count() /                                                              \
    1000000.0)
 
+/*
 int main(int argc, char *argv[]) {
   if (argc < 2) {
     std::cerr << "Usage: ./cloud_math.out <operation>" << std::endl;
@@ -82,6 +83,80 @@ int main(int argc, char *argv[]) {
   std::cout << "Operation Time: " << time_duration_ms(enc) << " ms"
             << std::endl;
   // 4. Save result
+  Serial::SerializeToFile("cloud_result.bin", result, SerType::BINARY);
+  return 0;
+}
+*/
+
+int main(int argc, char *argv[]) {
+  if (argc < 2) {
+    std::cerr << "Usage: ./cloud_math.out <operation>" << std::endl;
+    return 1;
+  }
+
+  std::string op = argv[1];
+  CryptoContext<DCRTPoly> cc;
+
+  // We now need TWO ciphertext objects
+  Ciphertext<DCRTPoly> ct1;
+  Ciphertext<DCRTPoly> ct2;
+
+  // 1. Load context
+  if (!Serial::DeserializeFromFile("cloud_context.bin", cc, SerType::BINARY)) {
+    std::cerr << "Error loading context" << std::endl;
+    return 1;
+  }
+
+  // 2. Load BOTH ciphertexts (saved by your Flask script)
+  if (!Serial::DeserializeFromFile("cloud_ciphertext_1.bin", ct1,
+                                   SerType::BINARY)) {
+    std::cerr << "Error loading ciphertext 1" << std::endl;
+    return 1;
+  }
+  if (!Serial::DeserializeFromFile("cloud_ciphertext_2.bin", ct2,
+                                   SerType::BINARY)) {
+    std::cerr << "Error loading ciphertext 2" << std::endl;
+    return 1;
+  }
+
+  // 3. Load Evaluation Keys (Mult key is crucial for EvalMult between two
+  // ciphertexts)
+  std::ifstream multKeyFile("mult_key.bin", std::ios::binary);
+  if (multKeyFile)
+    cc->DeserializeEvalMultKey(multKeyFile, SerType::BINARY);
+
+  std::ifstream rotKeyFile("rot_key.bin", std::ios::binary);
+  if (rotKeyFile)
+    cc->DeserializeEvalAutomorphismKey(rotKeyFile, SerType::BINARY);
+
+  Ciphertext<DCRTPoly> result;
+  start_time(enc);
+
+  // 4. Vector-to-Vector Logic
+  if (op == "add") {
+    // This adds ct1[index] + ct2[index] for all slots simultaneously
+    result = cc->EvalAdd(ct1, ct2);
+  } else if (op == "multiply") {
+    // This multiplies ct1[index] * ct2[index]
+    // Note: For BFV/BGV/CKKS, multiplying two ciphertexts requires the MultKey
+    result = cc->EvalMult(ct1, ct2);
+  } else if (op == "average") {
+    // Example: Add them and divide by 2
+    result = cc->EvalAdd(ct1, ct2);
+    if (cc->getSchemeId() == SCHEME::CKKSRNS_SCHEME) {
+      result = cc->EvalMult(result, 0.5);
+    } else {
+      // Integer schemes don't support 0.5 easily; might need a different
+      // approach
+      std::cerr << "Average between vectors usually requires CKKS" << std::endl;
+    }
+  }
+
+  end_time(enc);
+  std::cout << "Operation Time: " << time_duration_ms(enc) << " ms"
+            << std::endl;
+
+  // 5. Save result
   Serial::SerializeToFile("cloud_result.bin", result, SerType::BINARY);
   return 0;
 }

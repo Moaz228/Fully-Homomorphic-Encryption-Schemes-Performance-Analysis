@@ -1,4 +1,5 @@
 import base64
+import glob
 import os
 import subprocess
 import time
@@ -10,7 +11,7 @@ from Crypto.Util.Padding import unpad
 
 # ================= CONFIGURATION =================
 SELECTED_SCHEME = "CKKS"
-CLOUD_URL = "http://localhost:5000/compute/multiply"  # Set your operation here
+CLOUD_URL = "http://localhost:5000/compute/add"  # Set your operation here
 
 MQTT_BROKER = "broker.hivemq.com"
 MQTT_PORT = 1883
@@ -106,6 +107,19 @@ def on_message(client, userdata, msg):
 # Setup MQTT Client
 client = mqtt.Client()
 client.on_message = on_message
+
+print("Clearing old Data...")
+for f in [
+    "cryptocontext.bin",
+    "public_key.bin",
+    "secret_key.bin",
+    "mult_key.bin",
+    "rot_key.bin",
+    "ciphertext_in.bin",
+    "ciphertext_out.bin",
+]:
+    if os.path.exists(f):
+        os.remove(f)
 
 print(f"--- FHE Gateway: {SELECTED_SCHEME} Mode ---")
 client.connect(MQTT_BROKER, MQTT_PORT, 60)
