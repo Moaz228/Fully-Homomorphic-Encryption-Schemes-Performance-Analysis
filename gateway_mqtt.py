@@ -1,16 +1,16 @@
 import base64
-import glob
 import os
 import subprocess
 import time
 
 import paho.mqtt.client as mqtt
+import psutil
 import requests
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
 
 # ================= CONFIGURATION =================
-SELECTED_SCHEME = "CKKS"
+SELECTED_SCHEME = "BGV"
 OPERATION = "multiply"
 CLOUD_URL = (
     f"http://localhost:5000/compute/{OPERATION}"  # Set your operation here
@@ -32,14 +32,22 @@ ENGINES = {
 
 def decrypt_aes(payload_b64):
     try:
+        process = psutil.Process(os.getpid())
+        start_mem = process.memory_info().rss
         start_time = time.time()
+        process.cpu_percent(interval=None)
         raw_data = base64.b64decode(payload_b64)
         iv = raw_data[:16]
         ciphertext = raw_data[16:]
         cipher = AES.new(AES_KEY, AES.MODE_CBC, iv)
         decrypted = unpad(cipher.decrypt(ciphertext), AES.block_size)
         end_time = time.time()
+        end_mem = process.memory_info().rss
+        cpu_usage = process.cpu_percent(interval=None)
         print(f"AES Decryption Time: {(end_time - start_time)*1000:.4f} ms")
+        mem_used_kb = (end_mem - start_mem) / 1024
+        print(f"AES Decryption CPU Usage: {cpu_usage}%")
+        print(f"AES DRAM Delta: {mem_used_kb:.2f} KB")
         return [float(x) for x in decrypted.decode("utf-8").split(",")]
     except Exception as e:
         print(f"[!] AES Decryption failed: {e}")
@@ -50,6 +58,9 @@ def on_message(client, userdata, msg):
     print(f"\n[MQTT] Received data from ESP32...")
 
     # 1. AES Decrypt
+    # process = psutil.Process(os.getpid())
+    # start_mem = process.memory_info().rss
+    # process.cpu_percent(interval=None)
     readings = decrypt_aes(msg.payload)
     if not readings:
         return
@@ -62,8 +73,14 @@ def on_message(client, userdata, msg):
     # 3. Trigger C++ ENCRYPTION
     engine_path = ENGINES[SELECTED_SCHEME]
     print(f"[*] Running {SELECTED_SCHEME} Encryption...")
-    subprocess.run([engine_path], check=True)  # Runs C++ to create .bin files
-
+    subprocess.run(
+        ["/usr/bin/time", "-v", engine_path], check=True
+    )  # Runs C++ to create .bin files
+    # end_mem = process.memory_info().rss
+    # cpu_usage = process.cpu_percent(interval=None)
+    # mem_used_kb = (end_mem - start_mem) / 1024
+    # print(f"CPU Usage: {cpu_usage}%")
+    # print(f"RAM Delta: {mem_used_kb:.2f} KB")
     # 4. Upload to Flask Cloud
     print(f"[*] Sending encrypted data to Cloud API ({CLOUD_URL})...")
     try:
@@ -92,7 +109,7 @@ def on_message(client, userdata, msg):
             print("[*] Running FHE Decryption...")
             start_time = time.time()
             result = subprocess.run(
-                ["time", engine_path, "--decrypt", OPERATION],
+                ["/usr/bin/time", "-v", engine_path, "--decrypt", OPERATION],
                 capture_output=True,
                 text=True,
             )
@@ -103,6 +120,9 @@ def on_message(client, userdata, msg):
 
             print("\n--- FINAL FHE RESULTS ---")
             print(result.stdout)
+            print("-------------------------")
+            print("--- RESOURCE CONSUMPTION (GNU TIME) ---")
+            print(result.stderr)
             print("-------------------------")
         else:
             print(f"[!] Cloud Error: {response.text}")

@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
       CCParams<CryptoContextCKKSRNS> params;
       params.SetMultiplicativeDepth(2);
       params.SetScalingModSize(50);
-      params.SetBatchSize(512);
+      params.SetBatchSize(1024);
       params.SetScalingTechnique(lbcrypto::FLEXIBLEAUTO);
 
       cc = GenCryptoContext(params);
@@ -101,9 +101,9 @@ int main(int argc, char *argv[]) {
     while (inputFile >> temp_val)
       gateway_input.push_back(temp_val);
     if (gateway_input.empty())
-      gateway_input.assign(500, 0.0);
+      gateway_input.assign(1000, 0.0);
 
-    gateway_input.resize(512, 0.0);
+    gateway_input.resize(1024, 0.0);
 
     Plaintext pt = cc->MakeCKKSPackedPlaintext(gateway_input);
     start_time(enc);
@@ -149,7 +149,7 @@ int main(int argc, char *argv[]) {
     start_time(dec);
     cc->Decrypt(sk, ct, &result);
     end_time(dec);
-    size_t vectorSize = 500;
+    size_t vectorSize = 1000;
     result->SetLength(vectorSize);
 
     std::cout << "[CKKS] Decryption Time: " << time_duration_ms(dec) << " ms"
