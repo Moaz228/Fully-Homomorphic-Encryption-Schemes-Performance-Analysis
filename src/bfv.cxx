@@ -111,13 +111,18 @@ int main(int argc, char *argv[]) {
               << std::endl;
 
     if (op == "average") {
+      start_time(avg);
       double totalSum = 0.0;
       for (size_t i = 0; i < vectorSize; i++) {
         totalSum +=
             (values[i] / 200.0); // Divide by 2 (vectors) and 100 (scaling)
       }
+      end_time(avg);
       std::cout << "\n--- BFV GLOBAL SPATIAL AVERAGE ---" << std::endl;
       std::cout << "Result: " << totalSum / vectorSize << std::endl;
+
+      std::cout << "[BFV] Average Division Time: " << time_duration_ms(avg)
+                << " ms" << std::endl;
     } else {
       for (size_t i = 0; i < 10; i++)
         std::cout << "Index " << i << ": " << values[i] / 100.0 << std::endl;

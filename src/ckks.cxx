@@ -159,6 +159,7 @@ int main(int argc, char *argv[]) {
     auto values = result->GetRealPackedValue();
     // std::cout << "[CKKS] Decrypted Result: " << values[0] << std::endl;
     if (op == "average") {
+      start_time(avg_op);
       double totalSum = 0.0;
 
       for (size_t i = 0; i < vectorSize; i++) {
@@ -168,11 +169,14 @@ int main(int argc, char *argv[]) {
       }
 
       double finalGlobalAvg = totalSum / vectorSize;
-
+      end_time(avg_op);
       std::cout << "\n--- GLOBAL SPATIAL AVERAGE ---" << std::endl;
       std::cout << "Average value across all " << vectorSize
                 << " sensors: " << finalGlobalAvg << std::endl;
       std::cout << "------------------------------" << std::endl;
+
+      std::cout << "[CKKS] Average Division time: " << time_duration_ms(avg_op)
+                << " ms" << std::endl;
     } else {
       // For 'add' and 'multi', we just print the raw decrypted values
       for (size_t i = 0; i < 10; i++) {

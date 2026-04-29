@@ -10,8 +10,8 @@ from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
 
 # ================= CONFIGURATION =================
-SELECTED_SCHEME = "BGV"
-OPERATION = "average"
+SELECTED_SCHEME = "CKKS"
+OPERATION = "multiply"
 CLOUD_URL = (
     f"http://localhost:5000/compute/{OPERATION}"  # Set your operation here
 )
@@ -92,7 +92,7 @@ def on_message(client, userdata, msg):
             print("[*] Running FHE Decryption...")
             start_time = time.time()
             result = subprocess.run(
-                [engine_path, "--decrypt", OPERATION],
+                ["time", engine_path, "--decrypt", OPERATION],
                 capture_output=True,
                 text=True,
             )
