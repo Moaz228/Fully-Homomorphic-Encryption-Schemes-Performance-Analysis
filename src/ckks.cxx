@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
     // --- STEP 1: KEY PERSISTENCE LOGIC ---
     if (fileExists("cryptocontext.bin") && fileExists("public_key.bin")) {
       // Re-use existing keys so Vector 1 and Vector 2 match
-      std::cout << "[CKKS] Found existing keys. Loading..." << std::endl;
+      std::cout << "[CKKS] Loading existing keys..." << std::endl;
       Serial::DeserializeFromFile("cryptocontext.bin", cc, SerType::BINARY);
       Serial::DeserializeFromFile("public_key.bin", pk, SerType::BINARY);
     } else {

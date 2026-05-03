@@ -10,8 +10,8 @@ from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
 
 # ================= CONFIGURATION =================
-SELECTED_SCHEME = "BGV"
-OPERATION = "multiply"
+SELECTED_SCHEME = os.environ.get("SELECTED_SCHEME", "BGV")
+OPERATION = os.environ.get("SELECTED_OPERATION", "add")
 CLOUD_URL = (
     f"http://localhost:5000/compute/{OPERATION}"  # Set your operation here
 )
@@ -44,18 +44,21 @@ def decrypt_aes(payload_b64):
         end_time = time.time()
         end_mem = process.memory_info().rss
         cpu_usage = process.cpu_percent(interval=None)
-        print(f"AES Decryption Time: {(end_time - start_time)*1000:.4f} ms")
+        print(
+            f"AES Decryption Time: {(end_time - start_time)*1000:.4f} ms",
+            flush=True,
+        )
         mem_used_kb = (end_mem - start_mem) / 1024
-        print(f"AES Decryption CPU Usage: {cpu_usage}%")
-        print(f"AES DRAM Delta: {mem_used_kb:.2f} KB")
+        print(f"AES Decryption CPU Usage: {cpu_usage}%", flush=True)
+        print(f"AES DRAM Delta: {mem_used_kb:.2f} KB", flush=True)
         return [float(x) for x in decrypted.decode("utf-8").split(",")]
     except Exception as e:
-        print(f"[!] AES Decryption failed: {e}")
+        print(f"[!] AES Decryption failed: {e}", flush=True)
         return None
 
 
 def on_message(client, userdata, msg):
-    print(f"\n[MQTT] Received data from ESP32...")
+    print(f"\n[MQTT] Received data from ESP32...", flush=True)
 
     # 1. AES Decrypt
     # process = psutil.Process(os.getpid())
@@ -72,7 +75,7 @@ def on_message(client, userdata, msg):
 
     # 3. Trigger C++ ENCRYPTION
     engine_path = ENGINES[SELECTED_SCHEME]
-    print(f"[*] Running {SELECTED_SCHEME} Encryption...")
+    print(f"[*] Running {SELECTED_SCHEME} Encryption...", flush=True)
     subprocess.run(
         ["/usr/bin/time", "-v", engine_path], check=True
     )  # Runs C++ to create .bin files
@@ -82,7 +85,10 @@ def on_message(client, userdata, msg):
     # print(f"CPU Usage: {cpu_usage}%")
     # print(f"RAM Delta: {mem_used_kb:.2f} KB")
     # 4. Upload to Flask Cloud
-    print(f"[*] Sending encrypted data to Cloud API ({CLOUD_URL})...")
+    print(f"Running BGV engine with operation: {OPERATION}", flush=True)
+    print(
+        f"[*] Sending encrypted data to Cloud API ({CLOUD_URL})...", flush=True
+    )
     try:
         # We send context, data, and the evaluation keys
         files = {
@@ -92,7 +98,8 @@ def on_message(client, userdata, msg):
             "rot_key": open("rot_key.bin", "rb"),
         }
         print(
-            f"Encrypted Data Size: {(os.path.getsize("ciphertext_out.bin")) / 1024}"
+            f"Encrypted Data Size: {(os.path.getsize("ciphertext_out.bin")) / 1024}",
+            flush=True,
         )
         start_time = time.time()
         response = requests.post(CLOUD_URL, files=files)
@@ -102,15 +109,14 @@ def on_message(client, userdata, msg):
             # 5. Save the Cloud's result
             with open("ciphertext_in.bin", "wb") as f:
                 f.write(response.content)
-            print("[+] Cloud computation complete. Result saved.")
+            print("[+] Cloud computation complete. Result saved.", flush=True)
 
             # 6. Trigger C++ DECRYPTION
             # Note: We pass '--decrypt' so your C++ code knows to switch modes
-            print("[*] Running FHE Decryption...")
+            print("[*] Running FHE Decryption...", flush=True)
             start_time = time.time()
             result = subprocess.run(
                 ["/usr/bin/time", "-v", engine_path, "--decrypt", OPERATION],
-                capture_output=True,
                 text=True,
             )
             end_time = time.time()
@@ -118,12 +124,12 @@ def on_message(client, userdata, msg):
             #     f"{SELECTED_SCHEME} Decryption Time: {(end_time - start_time)*1000:.4f} ms"
             # )
 
-            print("\n--- FINAL FHE RESULTS ---")
-            print(result.stdout)
-            print("-------------------------")
-            print("--- RESOURCE CONSUMPTION (GNU TIME) ---")
-            print(result.stderr)
-            print("-------------------------")
+            print("\n--- FINAL FHE RESULTS ---", flush=True)
+            print(result.stdout, flush=True)
+            print("-------------------------", flush=True)
+            print("--- RESOURCE CONSUMPTION (GNU TIME) ---", flush=True)
+            print(result.stderr, flush=True)
+            print("-------------------------", flush=True)
         else:
             print(f"[!] Cloud Error: {response.text}")
 

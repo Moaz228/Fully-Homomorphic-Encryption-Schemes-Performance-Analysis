@@ -17,10 +17,10 @@ second_vector = [round(random.uniform(20.0, 50.0), 3) for _ in range(1000)]
 # random_values = [str(random.randint(20, 50)) for _ in range(60)]
 
 DATA1 = ",".join(map(str, first_vector)).encode("utf-8")
-print(f"First Vector Data Size = {len(DATA1)}")
+print(f"First Vector Data Size = {len(DATA1)}", flush=True)
 
 DATA2 = ",".join(map(str, second_vector)).encode("utf-8")
-print(f"Second Vector Data Size = {len(DATA2)}")
+print(f"Second Vector Data Size = {len(DATA2)}", flush=True)
 
 print("\n--- SENSOR DATA PREVIEW (First 10) ---")
 print(f"Vector 1: {first_vector[:10]}")

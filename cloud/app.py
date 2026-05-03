@@ -58,29 +58,14 @@ def compute(operation):
         # Note: You'll need to update your C++ 'cloud_math.cpp' to load two ciphertexts
         try:
             subprocess.run(
-                ["../build/cloud_math.out", operation, CT1_PATH, CT2_PATH],
+                ["./build/cloud_math.out", operation, CT1_PATH, CT2_PATH],
                 check=True,
             )
 
             # 4. Cleanup temporary files after computation
             os.remove(CT1_PATH)
             os.remove(CT2_PATH)
-
-            print("Clearing old Data...")
-            for f in [
-                "cryptocontext.bin",
-                "cloud_context.bin",
-                "public_key.bin",
-                "secret_key.bin",
-                "mult_key.bin",
-                "rot_key.bin",
-                "ciphertext_in.bin",
-                "ciphertext_out.bin",
-            ]:
-                if os.path.exists(f):
-                    os.remove(f)
-
-            return send_file("cloud_result.bin")
+            return send_file("../cloud_result.bin")
 
         except Exception as e:
             return f"Computation failed: {str(e)}", 500
