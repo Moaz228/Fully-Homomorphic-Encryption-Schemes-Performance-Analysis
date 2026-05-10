@@ -7,7 +7,7 @@ import threading
 import time
 
 # --- CONFIG ---
-CSV_NAME = "fhe_performance_metrics.csv"
+# CSV_NAME = "fhe_performance_metrics.csv"
 data_lock = threading.Lock()
 
 
@@ -18,8 +18,6 @@ def cleanup_workspace():
     csv_files = glob.glob("*.csv") + glob.glob("cloud/*.csv")
 
     for file_path in csv_files:
-        if file_path == CSV_NAME:
-            continue
         try:
             os.remove(file_path)
             print(f"   Deleted {file_path}")
@@ -184,7 +182,7 @@ def monitor_output(process, name):
                         row_data[f"v{local_v_idx}_enc_cpu"] = val
 
 
-def run_single_iteration(schema, operation):
+def run_single_iteration(schema, operation, csv_filename):
     cleanup_workspace()
     global row_data
     row_data = reset_row_data()
@@ -249,14 +247,14 @@ def run_single_iteration(schema, operation):
 
     with data_lock:
         row_data["Timestamp"] = time.strftime("%H:%M:%S")
-        file_exists = os.path.isfile(CSV_NAME)
-        with open(CSV_NAME, "a", newline="") as f:
+        file_exists = os.path.isfile(csv_filename)
+        with open(csv_filename, "a", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=row_data.keys())
             if not file_exists:
                 writer.writeheader()
             writer.writerow(row_data)
 
-    print("💾 Metrics saved. Cleaning up processes...")
+    print(f"💾 Metrics saved to {csv_filename}. Cleaning up processes...")
     for p in [cloud_proc, fog_proc, sender_proc]:
         try:
             p.terminate()
@@ -279,13 +277,22 @@ def main():
     operation = op_map.get(op_choice, "add")
 
     iters = int(input("\nIterations: "))
+    folder_name = "records"
+    if not os.path.exists(folder_name):
+        os.makedirs(folder_name)
+        print(f"📁 Created directory: {folder_name}")
+    # Generating csv file name
+    ts_for_name = time.strftime("%Y%m%d-%H%M%S")
+    filename = f"{schema}-{operation}-{iters}runs-{ts_for_name}.csv"
+    csv_filename = os.path.join(folder_name, filename)
+    print(f"📊 Results will be saved to: {csv_filename}")
 
     # Pass the actual strings ("BGV", "add") to the runner
     for i in range(iters):
         print(
             f"\n--- RUN {i+1}/{iters} [Scheme: {schema}, Op: {operation}] ---"
         )
-        run_single_iteration(schema, operation)
+        run_single_iteration(schema, operation, csv_filename)
         time.sleep(2)
 
 

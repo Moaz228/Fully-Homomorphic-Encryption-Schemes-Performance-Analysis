@@ -1,8 +1,10 @@
 build/
 bin/
 *.bin
+*.csv
 sensor_readings.txt
 __pycache__/
 .vscode/
 extern/
 .cache/
+records/
