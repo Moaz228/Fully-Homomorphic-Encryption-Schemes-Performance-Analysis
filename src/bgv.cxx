@@ -103,7 +103,7 @@ int main(int argc, char *argv[]) {
     cc->Decrypt(sk, ct, &result);
     end_time(dec);
 
-    size_t vectorSize = 500;
+    size_t vectorSize = 1000;
     result->SetLength(vectorSize);
     auto values = result->GetPackedValue();
 
@@ -122,7 +122,15 @@ int main(int argc, char *argv[]) {
       std::cout << "[BGV] Average Division Time: " << time_duration_ms(avg)
                 << " ms" << std::endl;
 
-    } else {
+    } else if (op == "oldAverage") {
+      auto values = result->GetPackedValue();
+      // The cloud already multiplied by 0.5 (inv2),
+      // so we just divide by the spatial size.
+      double finalAvg = (double)values[0] / vectorSize;
+      std::cout << "Global Cloud-Computed Average: " << finalAvg << std::endl;
+    }
+
+    else {
       for (size_t i = 0; i < 10; i++)
         std::cout << "Index " << i << ": " << values[i] / 100.0 << std::endl;
     }

@@ -177,7 +177,18 @@ int main(int argc, char *argv[]) {
 
       std::cout << "[CKKS] Average Division time: " << time_duration_ms(avg_op)
                 << " ms" << std::endl;
-    } else {
+    } else if (op == "oldAverage") {
+      // Because we used EvalSum in the cloud, values[0] already contains
+      // the sum of (v1+v2)/2. Now just divide by the number of sensors.
+      double finalGlobalAvg = values[0] / vectorSize;
+
+      std::cout << "\n--- GLOBAL SPATIAL AVERAGE (CLOUD CALC) ---" << std::endl;
+      std::cout << "Average value across all " << vectorSize
+                << " sensors: " << finalGlobalAvg << std::endl;
+      std::cout << "-------------------------------------------" << std::endl;
+    }
+
+    else {
       // For 'add' and 'multi', we just print the raw decrypted values
       for (size_t i = 0; i < 10; i++) {
         std::cout << "Index " << i << ": " << values[i] << std::endl;

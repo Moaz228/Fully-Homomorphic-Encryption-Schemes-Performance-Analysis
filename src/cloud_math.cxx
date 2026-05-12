@@ -141,13 +141,45 @@ int main(int argc, char *argv[]) {
     // Note: For BFV/BGV/CKKS, multiplying two ciphertexts requires the MultKey
     result = cc->EvalMult(ct1, ct2);
   } else if (op == "average") {
-    // Example: Add them and divide by 2
+    // Example: Add them and divide then the division will happen in the fog
     result = cc->EvalAdd(ct1, ct2);
+
+  } else if (op == "oldAverage") {
+    auto added = cc->EvalAdd(ct1, ct2);
+    auto schemaId = cc->getSchemeId();
+    double divBy2 = 0.5;
+
+    if (schemaId == SCHEME::CKKSRNS_SCHEME) {
+      auto ctPairwiseAvg = cc->EvalMult(added, divBy2);
+      result = cc->EvalSum(ctPairwiseAvg, 1000);
+
+    } else if (schemaId == SCHEME::BFVRNS_SCHEME ||
+               schemaId == SCHEME::BGVRNS_SCHEME) {
+
+      // 1. Get the Plaintext Modulus (t)
+      int64_t t = cc->GetCryptoParameters()->GetPlaintextModulus();
+
+      // 2. Calculate the modular inverse of 2: inv2 = (t + 1) / 2
+      // This only works if t is odd (which it almost always is in OpenFHE)
+      int64_t inv2 = (t + 1) / 2;
+
+      // 3. Calculate the modular inverse of the vector size (e.g., 500)
+      // For simplicity, we'll just multiply by inv2 here to show the temporal
+      // average and do the spatial sum.
+      Plaintext pInv2 = cc->MakePackedPlaintext({inv2});
+
+      // 4. Multiply Ciphertext by the modular inverse of 2
+      auto temporalAvg = cc->EvalMult(added, pInv2);
+
+      // 5. Heavy Spatial Sum (Rotations)
+      result = cc->EvalSum(temporalAvg, 1024);
+    }
   }
 
   end_time(enc);
   std::cout << "Operation Time: " << time_duration_ms(enc) << " ms"
             << std::endl;
+  std::cout << time_duration_ms(enc) << std::endl;
 
   // 5. Save result
   Serial::SerializeToFile("cloud_result.bin", result, SerType::BINARY);

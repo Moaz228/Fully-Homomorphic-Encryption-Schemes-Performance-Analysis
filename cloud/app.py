@@ -57,15 +57,22 @@ def compute(operation):
         # 3. Run the C++ engine (Updated to expect two file inputs)
         # Note: You'll need to update your C++ 'cloud_math.cpp' to load two ciphertexts
         try:
-            subprocess.run(
-                ["./build/cloud_math.out", operation, CT1_PATH, CT2_PATH],
+            result = subprocess.run(
+                ["../build/cloud_math.out", operation, CT1_PATH, CT2_PATH],
                 check=True,
+                capture_output=True,
+                text=True,
             )
+            output_lines = result.stdout.strip().split("\n")
+            op_time = output_lines[-1]
+            print(f"[*] Computation Finished. Internal Time: {op_time} ms")
 
             # 4. Cleanup temporary files after computation
             os.remove(CT1_PATH)
             os.remove(CT2_PATH)
-            return send_file("../cloud_result.bin")
+            response = send_file("cloud_result.bin")
+            response.headers["X-Compute-Time"] = op_time
+            return response
 
         except Exception as e:
             return f"Computation failed: {str(e)}", 500

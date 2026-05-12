@@ -12,8 +12,13 @@ KEY = b"my_super_secret1"
 # first_vector = [str(round(random.uniform(20.0, 50.0), 3)) for _ in range(500)]
 # second_vector = [str(round(random.uniform(20.0, 50.0), 3)) for _ in range(500)]
 # 1. Generate the same vectors
-first_vector = [round(random.uniform(20.0, 50.0), 3) for _ in range(1000)]
-second_vector = [round(random.uniform(20.0, 50.0), 3) for _ in range(1000)]
+# first_vector = [round(random.uniform(20.0, 50.0), 3) for _ in range(1000)]
+# second_vector = [round(random.uniform(20.0, 50.0), 3) for _ in range(1000)]
+
+# For Integer Numbers
+first_vector = [random.randint(20, 50) for _ in range(1000)]
+second_vector = [random.randint(20, 50) for _ in range(1000)]
+
 # random_values = [str(random.randint(20, 50)) for _ in range(60)]
 
 DATA1 = ",".join(map(str, first_vector)).encode("utf-8")
