@@ -42,6 +42,8 @@ def reset_metrics_dict():
         "Timestamp": "",
         "Schema": SELECTED_SCHEME,
         "Operation": OPERATION,
+        "v1_plaintext_size": "",
+        "v2_plaintext_size": "",
         "v1_ciphertext_size": "",
         "v2_ciphertext_size": "",
         "v1_aes_dec_ms": "",
@@ -133,6 +135,8 @@ def on_message(client, userdata, msg):
         state["metrics"][f"v{v_idx}_aes_dec_ms"] = round(
             (time.time() - start_aes) * 1000, 4
         )
+        plaintext_kb = len(decrypted)
+        state["metrics"][f"v{v_idx}_plaintext_size"] = plaintext_kb
 
         with open("sensor_readings.txt", "w") as f:
             for val in readings:

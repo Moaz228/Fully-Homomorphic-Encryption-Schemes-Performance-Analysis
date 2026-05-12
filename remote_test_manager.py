@@ -102,8 +102,8 @@ def main():
         print(f"\n--- TRIGGERING RUN {i+1}/{iters} ---")
         run_iteration(filename)
         # Wait for the Fog (Pi) to finish its FHE/Cloud cycle before sending next
-        print("⏳ Waiting 15s for Fog to complete its cycle and log data...")
-        time.sleep(15)
+        print("⏳ Waiting 5s for Fog to complete its cycle and log data...")
+        time.sleep(5)
 
     print(f"\n✅ Testing Complete. Sender metrics saved to {filename}")
     print(
