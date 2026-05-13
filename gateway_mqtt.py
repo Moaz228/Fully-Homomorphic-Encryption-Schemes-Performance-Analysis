@@ -14,10 +14,10 @@ from Crypto.Util.Padding import unpad
 # ================= CONFIGURATION =================
 WORKSTATION_IP = "localhost"  # Set to actual IP when moving to Pi
 
-# Schemas: [CKKS,BFV,BGV]
+# Schemas: [CKKS,BFV,BGVG
 # Ops: [add,multiply,average,oldAverage]
-SELECTED_SCHEME = os.environ.get("SELECTED_SCHEME", "BFV")
-OPERATION = os.environ.get("SELECTED_OPERATION", "add")
+SELECTED_SCHEME = os.environ.get("SELECTED_SCHEME", "CKKS")
+OPERATION = os.environ.get("SELECTED_OPERATION", "multiply")
 CLOUD_URL = f"http://{WORKSTATION_IP}:5000/compute/{OPERATION}"
 
 MQTT_BROKER = "broker.hivemq.com"

@@ -11,6 +11,8 @@ from Crypto.Util.Padding import pad
 KEY = b"my_super_secret1"
 # first_vector = [str(round(random.uniform(20.0, 50.0), 3)) for _ in range(500)]
 # second_vector = [str(round(random.uniform(20.0, 50.0), 3)) for _ in range(500)]
+
+
 # 1. Generate the same vectors
 # first_vector = [round(random.uniform(20.0, 50.0), 3) for _ in range(1000)]
 # second_vector = [round(random.uniform(20.0, 50.0), 3) for _ in range(1000)]
