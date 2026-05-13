@@ -25,7 +25,7 @@ MQTT_PORT = 1883
 MQTT_TOPIC = "grad_project/sensor_data"
 
 AES_KEY = b"my_super_secret1"
-CSV_FILE = "fog_performance_log.csv"
+# CSV_FILE = "fog_performance_log.csv"
 
 ENGINES = {
     "BFV": "./build/bfv_bin.out",
@@ -81,9 +81,9 @@ def get_file_size_kb(filepath):
     return 0
 
 
-def log_to_csv(data):
-    file_exists = os.path.isfile(CSV_FILE)
-    with open(CSV_FILE, "a", newline="") as f:
+def log_to_csv(data, filename):
+    file_exists = os.path.isfile(filename)
+    with open(filename, "a", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=data.keys())
         if not file_exists:
             writer.writeheader()
@@ -132,6 +132,9 @@ def on_message(client, userdata, msg):
         cipher = AES.new(AES_KEY, AES.MODE_CBC, iv)
         decrypted = unpad(cipher.decrypt(ciphertext), AES.block_size)
         readings = [float(x) for x in decrypted.decode("utf-8").split(",")]
+        data_count = len(readings)
+        dynamic_csv_name = f"{SELECTED_SCHEME}-{OPERATION}-{data_count}.csv"
+
         state["metrics"][f"v{v_idx}_aes_dec_ms"] = round(
             (time.time() - start_aes) * 1000, 4
         )
@@ -205,8 +208,8 @@ def on_message(client, userdata, msg):
             state["metrics"]["cloud_compute_ms"] = cloud_time
 
             # 5. LOG & RESET
-            log_to_csv(state["metrics"])
-            print(f"[+] Cycle complete. Metrics saved.")
+            log_to_csv(state["metrics"], dynamic_csv_name)
+            print(f"[+] Cycle complete. Metrics saved to {dynamic_csv_name}.")
             state["v1_received"] = False
         else:
             print(f"[!] Cloud Error: {response.text}")
